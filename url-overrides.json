@@ -3,5 +3,22 @@
   "urls": {},
   "disabled_engines": [],
   "mirrors": {},
-  "revoked": []
+  "revoked": [],
+  "denied_accounts": [
+    "19c51079fe007ba3af9fb9dfe3115208afde1131bd70db3b6e1bec23981b98ac",
+    "265fcd3d6e9a35de1a7ece94384a714123241c5b0760b2ffa7352f730fd6f952",
+    "9fa4d27759df04ac510159b2e72b701ddb4fbb0b17c1443c1e312f6c6257fb3e",
+    "2d2abc4bfb7046a7a804fd5d28a455d3bc14a890c82675f04d14cf5c8b3e89a1",
+    "4c1be2b476469cb04099ac72d6f6525a6ea5f5aa00eb9ce2a695a031223f23b1",
+    "168f3692e0801f83bfd5a7da17fc70b7060c3982af3dc84f0a64aa49ad3e48f2",
+    "cdd024bdbf228f88e33669fe9c0ac60af234e9ecaf36ac1a249c59994a9b7d35",
+    "cb815995140302e2b8bacde57fee80648b62b56d2eacedb862ac9b1ea87a6e7c",
+    "82cdfaef71396374189faa3801c3be13f2c73edb94a2f943019caae93fb8011b",
+    "c226e265a393ef3f8afd0afe8ed23e020dd0a11c595867e1d3d5538af1e4fab4",
+    "3c05b8ee6003da341f4f9ddff644722c7c42f33db139ebf2f79d0b84af00ca46",
+    "dca490172d668da6498e11b672e4bc0af447c4119cb76d42d3c973ce0fb727ef",
+    "48c84f0c7cfd897164a5fabdef3fa8249e60482e1f2c86a178eecddf67e3b367"
+  ],
+  "unbanned_accounts": [],
+  "banned_ips": []
 }
