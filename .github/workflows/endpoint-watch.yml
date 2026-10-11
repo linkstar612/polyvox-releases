@@ -29,8 +29,14 @@ jobs:
         with:
           node-version: 22
 
-      # The hard/soft streaks live in the Actions cache, not in git, so a
-      # quiet run commits nothing.
+      # The classifier, strike, ordering and manifest-splice tests. A red test
+      # stops the run before anything is written.
+      - name: Test
+        run: node --test tools/endpoint-watch/watch.test.mjs
+
+      # The strike counters live in the Actions cache, not in git, so a quiet
+      # run commits nothing. Each run saves under its own key and the next one
+      # restores the newest by prefix.
       - name: Restore streaks
         uses: actions/cache/restore@v4
         with:
