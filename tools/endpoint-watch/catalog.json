@@ -1,0 +1,41 @@
+{
+  "_doc": "What tools/endpoint-watch/watch.mjs probes. 'pool' keys get an ordered endpoints list in url-overrides.json (healthy first); the app merges it ahead of its compiled list and only accepts hosts on that vendor's allowlist. 'single' engines are watched and alerted on. 'keyed' hosts are probed with no credentials: an auth error means the API is alive.",
+  "probe_text": "hello friend",
+  "pool": {
+    "google_free": [
+      "https://translate.googleapis.com/translate_a/single?client=gtx",
+      "https://clients5.google.com/translate_a/t?client=dict-chrome-ex",
+      "https://translate.google.com/translate_a/single?client=gtx",
+      "https://translate.googleapis.com/translate_a/t?client=gtx",
+      "https://translate.google.com/translate_a/t?client=dict-chrome-ex"
+    ]
+  },
+  "single": {
+    "bing": { "probe": "bing", "session": "https://www.bing.com/translator", "url": "https://www.bing.com/ttranslatev3" },
+    "mymemory": { "probe": "mymemory", "url": "https://api.mymemory.translated.net/get" },
+    "qq_transmart": { "probe": "transmart", "url": "https://transmart.qq.com/api/imt" }
+  },
+  "keyed": {
+    "deepl_free": { "method": "POST", "url": "https://api-free.deepl.com/v2/translate" },
+    "deepl_pro": { "method": "POST", "url": "https://api.deepl.com/v2/translate" },
+    "azure_translator": { "method": "POST", "url": "https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=ja" },
+    "azure_translator_cn": { "method": "POST", "url": "https://api.translator.azure.cn/translate?api-version=3.0&to=ja" },
+    "google_tllm": { "method": "POST", "url": "https://translation.googleapis.com/v3/projects/x/locations/global:translateText" },
+    "gemini": { "method": "GET", "url": "https://generativelanguage.googleapis.com/v1beta/models" },
+    "openai": { "method": "GET", "url": "https://api.openai.com/v1/models" },
+    "deepseek": { "method": "GET", "url": "https://api.deepseek.com/v1/models" },
+    "openrouter": { "method": "GET", "url": "https://openrouter.ai/api/v1/models" },
+    "groq": { "method": "GET", "url": "https://api.groq.com/openai/v1/models" },
+    "moonshot": { "method": "GET", "url": "https://api.moonshot.cn/v1/models" },
+    "moonshot_global": { "method": "GET", "url": "https://api.moonshot.ai/v1/models" },
+    "plamo": { "method": "POST", "url": "https://api.platform.preferredai.jp/v1/chat/completions" },
+    "papago": { "method": "POST", "url": "https://papago.apigw.ntruss.com/nmt/v1/translation" },
+    "yandex": { "method": "POST", "url": "https://translate.api.cloud.yandex.net/translate/v2/translate" },
+    "baidu": { "method": "GET", "url": "https://api.fanyi.baidu.com/api/trans/vip/translate?q=hi&from=en&to=jp" },
+    "youdao": { "method": "POST", "url": "https://openapi.youdao.com/api" },
+    "caiyun": { "method": "POST", "url": "https://api.interpreter.caiyunai.com/v1/translator" },
+    "tencent": { "method": "POST", "url": "https://tmt.tencentcloudapi.com/" },
+    "volcano": { "method": "POST", "url": "https://translate.volcengineapi.com/?Action=TranslateText&Version=2020-06-01" },
+    "alibaba": { "method": "GET", "url": "https://mt.cn-shanghai.aliyuncs.com/", "alive404": true }
+  }
+}

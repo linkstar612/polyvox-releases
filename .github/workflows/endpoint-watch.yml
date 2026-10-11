@@ -1,0 +1,74 @@
+# Probes every translation endpoint the app uses, keeps the manifest's
+# per-engine endpoint lists healthy-first, and fails the run when an endpoint
+# goes down or comes back, which is what makes GitHub email the owner. A run
+# that sees no transition passes, so a long outage alerts once, not every half
+# hour. Details: tools/endpoint-watch/watch.mjs.
+name: endpoint-watch
+
+on:
+  schedule:
+    # Off the hour and half hour, where every scheduled job on GitHub lands.
+    - cron: "7,37 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: endpoint-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The hard/soft streaks live in the Actions cache, not in git, so a
+      # quiet run commits nothing.
+      - name: Restore streaks
+        uses: actions/cache/restore@v4
+        with:
+          path: .endpoint-watch-state.json
+          key: endpoint-watch-${{ github.run_id }}
+          restore-keys: endpoint-watch-
+
+      - name: Probe
+        id: watch
+        env:
+          ENDPOINT_WATCH_WEBHOOK: ${{ secrets.ENDPOINT_WATCH_WEBHOOK }}
+        run: node tools/endpoint-watch/watch.mjs --write
+
+      - name: Save streaks
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .endpoint-watch-state.json
+          key: endpoint-watch-${{ github.run_id }}
+
+      # The summary goes through env, never ${{ }} inside the script: it is
+      # built from endpoint responses.
+      - name: Commit manifest and health
+        if: steps.watch.outputs.changed == 'true'
+        env:
+          SUMMARY: ${{ steps.watch.outputs.summary }}
+        run: |
+          git config user.name "endpoint-watch"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add url-overrides.json endpoint-health.json
+          git commit -m "endpoint-watch: $SUMMARY"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Fail on a down or recovered transition
+        if: steps.watch.outputs.transition == 'true'
+        env:
+          SUMMARY: ${{ steps.watch.outputs.summary }}
+        run: |
+          echo "::error::$SUMMARY"
+          exit 1
