@@ -10,6 +10,13 @@ on:
     # Off the hour and half hour, where every scheduled job on GitHub lands.
     - cron: "7,37 * * * *"
   workflow_dispatch: {}
+  # A catalog or watch edit is probed right away instead of at the next slot.
+  # The watch's own commits use GITHUB_TOKEN, which never triggers a run.
+  push:
+    branches: [main]
+    paths:
+      - "tools/endpoint-watch/**"
+      - ".github/workflows/endpoint-watch.yml"
 
 permissions:
   contents: write
