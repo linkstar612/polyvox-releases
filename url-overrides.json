@@ -1,6 +1,15 @@
 {
   "version": 2,
   "urls": {},
+  "endpoints": {
+    "google_free": [
+      "https://translate.googleapis.com/translate_a/single?client=gtx",
+      "https://clients5.google.com/translate_a/t?client=dict-chrome-ex",
+      "https://translate.google.com/translate_a/single?client=gtx",
+      "https://translate.googleapis.com/translate_a/t?client=gtx",
+      "https://translate.google.com/translate_a/t?client=dict-chrome-ex"
+    ]
+  },
   "disabled_engines": [],
   "mirrors": {},
   "revoked": [],
