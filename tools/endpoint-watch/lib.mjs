@@ -1,5 +1,6 @@
-// Pure logic for endpoint-watch: response classifiers, strike counters, pool
-// ordering, the vendor host check and the manifest splice. No network, no
+// Pure logic for endpoint-watch: response classifiers, the Edge speech
+// version and token parsers, strike counters, pool ordering, the vendor host
+// check and the manifest splices. No network, no
 // disk, so `node --test` can drive every branch. watch.mjs does the I/O.
 
 // ── Classification ─────────────────────────────────────────────────────────
@@ -149,6 +150,99 @@ export function classifyKeyed(r, { alive404 = false } = {}) {
   return verdict('ok', `alive (HTTP ${r.status})`, r.ms);
 }
 
+// ── Edge speech recognition ─────────────────────────────────────────────────
+//
+// The probe streams a committed clip through the websocket and reports
+// `{opened, code, ended, timedOut, phrases: [{status, text}], ms}`. Node's
+// WebSocket surfaces a refused handshake (a bad token, a 403) as an error and
+// close 1006 with no HTTP status, so `opened` is the discriminator.
+// hard: the handshake failed, the socket dropped (1006), the turn ended with
+//   no Success phrase or with text that is not the clip's.
+// soft: the 10 s timeout, or a server-side close (1011-1014).
+
+/** Lowercase words, punctuation stripped. */
+const words = (s) =>
+  String(s)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s']/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+/** Matched words over the longer of the two, so extra garbage cannot pass. */
+export function wordOverlap(expected, got) {
+  const want = words(expected);
+  const have = words(got);
+  if (!want.length || !have.length) return 0;
+  const left = new Map();
+  for (const w of want) left.set(w, (left.get(w) ?? 0) + 1);
+  let hit = 0;
+  for (const w of have) {
+    if (left.get(w) > 0) {
+      left.set(w, left.get(w) - 1);
+      hit++;
+    }
+  }
+  return hit / Math.max(want.length, have.length);
+}
+
+export const EDGE_STT_MIN_OVERLAP = 0.8;
+
+export function classifyEdgeStt(r, expected) {
+  if (r.timedOut) return verdict('soft', r.opened ? 'timeout' : 'handshake timeout', r.ms);
+  if (!r.opened) return verdict('hard', `handshake failed (close ${r.code ?? '?'})`, r.ms);
+  if (!r.ended) {
+    const serverSide = r.code >= 1011 && r.code <= 1014;
+    return verdict(serverSide ? 'soft' : 'hard', `closed ${r.code ?? '?'} before turn.end`, r.ms);
+  }
+  const text = (r.phrases || []).filter((p) => p.status === 'Success').map((p) => p.text).join(' ').trim();
+  if (!text) return verdict('hard', 'no Success phrase', r.ms);
+  const overlap = wordOverlap(expected, text);
+  if (overlap < EDGE_STT_MIN_OVERLAP) return verdict('hard', `wrong text (${overlap.toFixed(2)}): ${text}`, r.ms);
+  return verdict('ok', `recognized (${overlap.toFixed(2)})`, r.ms);
+}
+
+const versionParts = (v) => String(v).split('.').map((n) => Number(n) || 0);
+const newer = (a, b) => {
+  const x = versionParts(a);
+  const y = versionParts(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0);
+  }
+  return false;
+};
+
+/** Newest Stable Windows x64 ProductVersion out of edgeupdates.microsoft.com/api/products, or null. */
+export function edgeStableVersion(products) {
+  const stable = Array.isArray(products) ? products.find((p) => p?.Product === 'Stable') : null;
+  let best = null;
+  for (const r of stable?.Releases || []) {
+    if (r?.Platform !== 'Windows' || r?.Architecture !== 'x64') continue;
+    if (!/^\d+(\.\d+){3}$/.test(r.ProductVersion ?? '')) continue;
+    if (best === null || newer(r.ProductVersion, best)) best = r.ProductVersion;
+  }
+  return best;
+}
+
+/** TRUSTED_CLIENT_TOKEN out of rany2/edge-tts src/edge_tts/constants.py, or null. */
+export function edgeTtsToken(src) {
+  return String(src).match(/^TRUSTED_CLIENT_TOKEN\s*=\s*"([0-9A-F]{32})"/m)?.[1] ?? null;
+}
+
+/**
+ * The (version, token) pairs worth re-probing after a failed handshake, new
+ * version first, then new token, then both. Pairs equal to what is in effect
+ * are skipped.
+ */
+export function edgeSttCandidates(current, found) {
+  const v = found.version && found.version !== current.version ? found.version : null;
+  const t = found.token && found.token !== current.token ? found.token : null;
+  const out = [];
+  if (v) out.push({ version: v, token: current.token });
+  if (t) out.push({ version: current.version, token: t });
+  if (v && t) out.push({ version: v, token: t });
+  return out;
+}
+
 // ── Strike counters ────────────────────────────────────────────────────────
 //
 // `hard` counts hard results since the last ok; `fail` counts every failure
@@ -258,8 +352,8 @@ export function orderPools(pools, vendorHosts, isDown) {
 
 // ── Manifest splice ────────────────────────────────────────────────────────
 //
-// Only the `endpoints` value changes. Every other byte of the file stays as
-// the owner wrote it, so a hand edit to the moderation lists never gets
+// Only the `endpoints` value and the two writable `edge_stt` fields change.
+// Every other byte of the file stays as the owner wrote it, so a hand edit to the moderation lists never gets
 // reformatted and a rebase against one does not conflict.
 
 function skipWs(t, i) {
@@ -339,39 +433,119 @@ function render(value, { eol, indent }) {
 
 const canon = (v) => JSON.stringify(v);
 
+const parse = (t) => JSON.parse(t.charCodeAt(0) === 0xfeff ? t.slice(1) : t);
+
+/** Throws unless every top-level key other than `key` is unchanged. */
+function checkOthers(before, after, key) {
+  const keysBefore = Object.keys(before).filter((k) => k !== key);
+  const keysAfter = Object.keys(after).filter((k) => k !== key);
+  if (canon(keysBefore) !== canon(keysAfter)) throw new Error('splice changed the key set');
+  for (const k of keysBefore) {
+    if (canon(before[k]) !== canon(after[k])) throw new Error(`splice changed ${k}`);
+  }
+}
+
+/**
+ * `text` with the top-level `key` value replaced by the already rendered
+ * `value`, or the member inserted after the first present `anchors` key (last
+ * when none is) when absent. Returns the new text unchecked.
+ */
+function spliceMember(text, key, value, anchors) {
+  const { members, close } = topLevelMembers(text);
+  const named = members.filter((m) => m.key === key);
+  if (named.length > 1) throw new Error(`manifest has more than one ${key} key`);
+  if (named.length === 1) {
+    const m = named[0];
+    return text.slice(0, m.valueStart) + value + text.slice(m.valueEnd);
+  }
+  const st = style(text);
+  const anchor = anchors.map((a) => members.find((m) => m.key === a)).find(Boolean) ?? members.at(-1);
+  const member = `${JSON.stringify(key)}: ${value}`;
+  if (anchor) return `${text.slice(0, anchor.valueEnd)},${st.eol}${st.indent}${member}${text.slice(anchor.valueEnd)}`;
+  return `${text.slice(0, close)}${st.eol}${st.indent}${member}${st.eol}${text.slice(close)}`;
+}
+
 /**
  * Returns `text` with the top-level `endpoints` value replaced by `endpoints`
  * (inserted after `urls`, or last, when absent). Throws instead of returning
  * anything that changes another key or fails to parse.
  */
 export function spliceEndpoints(text, endpoints) {
-  const before = JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text);
-  const { members, close } = topLevelMembers(text);
-  const named = members.filter((m) => m.key === 'endpoints');
-  if (named.length > 1) throw new Error('manifest has more than one endpoints key');
-  const st = style(text);
-  const value = render(endpoints, st);
-  let next;
-  if (named.length === 1) {
-    const m = named[0];
-    next = text.slice(0, m.valueStart) + value + text.slice(m.valueEnd);
-  } else {
-    const anchor = members.find((m) => m.key === 'urls') ?? members.at(-1);
-    const member = `"endpoints": ${value}`;
-    if (anchor) {
-      next = `${text.slice(0, anchor.valueEnd)},${st.eol}${st.indent}${member}${text.slice(anchor.valueEnd)}`;
-    } else {
-      next = `${text.slice(0, close)}${st.eol}${st.indent}${member}${st.eol}${text.slice(close)}`;
-    }
-  }
-  const after = JSON.parse(next.charCodeAt(0) === 0xfeff ? next.slice(1) : next);
-  const keysBefore = Object.keys(before).filter((k) => k !== 'endpoints');
-  const keysAfter = Object.keys(after).filter((k) => k !== 'endpoints');
-  if (canon(keysBefore) !== canon(keysAfter)) throw new Error('splice changed the key set');
-  for (const k of keysBefore) {
-    if (canon(before[k]) !== canon(after[k])) throw new Error(`splice changed ${k}`);
-  }
+  const before = parse(text);
+  const next = spliceMember(text, 'endpoints', render(endpoints, style(text)), ['urls']);
+  const after = parse(next);
+  checkOthers(before, after, 'endpoints');
   if (canon(after.endpoints) !== canon(endpoints)) throw new Error('splice did not write endpoints');
+  return next;
+}
+
+/** The two `edge_stt` fields the watch may write. Host, path and auth stay the owner's. */
+export const EDGE_STT_WRITABLE = ['version', 'token'];
+
+/**
+ * Returns `text` with `fields` (only `version` and `token`) set inside the
+ * top-level `edge_stt` object. Present members get their value replaced in
+ * place, missing ones are appended in the object's own indentation, and a
+ * missing object is inserted after `endpoints` (or `urls`, or last). Every
+ * other byte, inside the object too, stays. Throws instead of returning
+ * anything that changes another key or fails to parse.
+ */
+export function spliceEdgeStt(text, fields) {
+  const set = Object.entries(fields).filter(([, v]) => v !== undefined);
+  for (const [k, v] of set) {
+    if (!EDGE_STT_WRITABLE.includes(k)) throw new Error(`edge_stt.${k} is not writable`);
+    if (typeof v !== 'string' || !v) throw new Error(`edge_stt.${k} must be a non-empty string`);
+  }
+  const before = parse(text);
+  const prev = before.edge_stt;
+  if (prev !== undefined && (prev === null || typeof prev !== 'object' || Array.isArray(prev))) {
+    throw new Error('edge_stt is not an object');
+  }
+  const st = style(text);
+  const top = topLevelMembers(text).members.filter((m) => m.key === 'edge_stt');
+  if (top.length > 1) throw new Error('manifest has more than one edge_stt key');
+  let next;
+  if (!top.length) {
+    next = spliceMember(text, 'edge_stt', render(Object.fromEntries(set), st), ['endpoints', 'urls']);
+  } else {
+    const { valueStart, valueEnd } = top[0];
+    let obj = text.slice(valueStart, valueEnd);
+    const inner = topLevelMembers(obj).members;
+    for (const k of EDGE_STT_WRITABLE) {
+      if (inner.filter((m) => m.key === k).length > 1) throw new Error(`edge_stt has more than one ${k} key`);
+    }
+    // Replace from the end so earlier offsets stay valid.
+    const present = set.map(([k, v]) => [inner.find((m) => m.key === k), v]).filter(([m]) => m);
+    present.sort(([a], [b]) => b.valueStart - a.valueStart);
+    for (const [m, v] of present) obj = obj.slice(0, m.valueStart) + JSON.stringify(v) + obj.slice(m.valueEnd);
+    const missing = set.filter(([k]) => !inner.some((m) => m.key === k));
+    if (missing.length) {
+      const now = topLevelMembers(obj);
+      if (!now.members.length) {
+        obj = render({ ...prev, ...Object.fromEntries(missing) }, st);
+      } else {
+        const last = now.members.at(-1);
+        const first = now.members[0];
+        // The first member's line prefix is the object's indentation; a
+        // single-line object gets single-line members.
+        const lead = obj.slice(obj.lastIndexOf('\n', first.keyStart) + 1, first.keyStart);
+        const multiline = obj.lastIndexOf('\n', first.keyStart) >= 0;
+        const sep = multiline ? `,${st.eol}${lead}` : ', ';
+        const add = missing.map(([k, v]) => `${sep}${JSON.stringify(k)}: ${JSON.stringify(v)}`).join('');
+        obj = obj.slice(0, last.valueEnd) + add + obj.slice(last.valueEnd);
+      }
+    }
+    next = text.slice(0, valueStart) + obj + text.slice(valueEnd);
+  }
+  const after = parse(next);
+  checkOthers(before, after, 'edge_stt');
+  const want = { ...(prev || {}), ...Object.fromEntries(set) };
+  if (canon(Object.keys(after.edge_stt).sort()) !== canon(Object.keys(want).sort())) {
+    throw new Error('splice changed the edge_stt key set');
+  }
+  for (const [k, v] of Object.entries(want)) {
+    if (canon(after.edge_stt[k]) !== canon(v)) throw new Error(`splice did not keep edge_stt.${k}`);
+  }
   return next;
 }
 

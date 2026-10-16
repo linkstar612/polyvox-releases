@@ -7,17 +7,23 @@ import { fileURLToPath } from 'node:url';
 import {
   classifyBing,
   classifyBingSession,
+  classifyEdgeStt,
   classifyGoogle,
   classifyKeyed,
   classifyMyMemory,
   classifyTransmart,
+  edgeStableVersion,
+  edgeSttCandidates,
+  edgeTtsToken,
   orderPools,
   parseRustVendorTable,
+  spliceEdgeStt,
   spliceEndpoints,
   strike,
   topLevelMembers,
   transportClass,
   urlAllowed,
+  wordOverlap,
 } from './lib.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -249,4 +255,156 @@ test('splice: the live manifest keeps every byte outside endpoints', () => {
     const cut = after.lastIndexOf(',', m.keyStart);
     assert.equal(after.slice(0, cut) + after.slice(m.valueEnd), live);
   }
+});
+
+// ── Edge speech recognition ─────────────────────────────────────────────────
+
+const EXPECT = catalog.single.edge_stt.expect;
+const session = (extra) => ({ opened: true, ended: true, timedOut: false, code: 1000, phrases: [], ms: 1, ...extra });
+const said = (...texts) => session({ phrases: texts.map((text) => ({ status: 'Success', text })) });
+
+test('edge_stt: each class', () => {
+  assert.equal(classifyEdgeStt(said(EXPECT), EXPECT).cls, 'ok');
+  // Recognizer punctuation and casing drift is not a failure.
+  assert.equal(classifyEdgeStt(said('hello everyone this is a quick speech recognition test for the chatbox'), EXPECT).cls, 'ok');
+  assert.equal(classifyEdgeStt(said('Hello everyone, this is a quick', 'speech recognition test for the chat box.'), EXPECT).cls, 'ok');
+  // Handshake refused (bad token, 403): Node reports close 1006 without ever opening.
+  assert.equal(classifyEdgeStt(session({ opened: false, ended: false, code: 1006 }), EXPECT).cls, 'hard');
+  assert.equal(classifyEdgeStt(session({ ended: false, code: 1006 }), EXPECT).cls, 'hard');
+  assert.equal(classifyEdgeStt(session({ phrases: [] }), EXPECT).cls, 'hard');
+  assert.equal(classifyEdgeStt(session({ phrases: [{ status: 'NoMatch', text: '' }] }), EXPECT).cls, 'hard');
+  assert.equal(classifyEdgeStt(said('こんにちは皆さん'), EXPECT).cls, 'hard');
+  assert.equal(classifyEdgeStt(said('hello everyone'), EXPECT).cls, 'hard');
+  assert.equal(classifyEdgeStt(session({ timedOut: true, ended: false }), EXPECT).cls, 'soft');
+  assert.equal(classifyEdgeStt(session({ opened: false, timedOut: true, ended: false }), EXPECT).cls, 'soft');
+  assert.equal(classifyEdgeStt(session({ ended: false, code: 1011 }), EXPECT).cls, 'soft');
+  assert.equal(classifyEdgeStt(session({ ended: false, code: 1013 }), EXPECT).cls, 'soft');
+});
+
+test('edge_stt: word overlap counts against the longer side', () => {
+  assert.equal(wordOverlap('a b c d', 'a b c d'), 1);
+  assert.equal(wordOverlap('a b c d', 'a b c d e f g h'), 0.5);
+  assert.equal(wordOverlap('a a b', 'a b b'), 2 / 3);
+  assert.equal(wordOverlap('a', ''), 0);
+});
+
+// Trimmed from edgeupdates.microsoft.com/api/products on 2026-10-16 (CVEs and
+// Artifacts dropped). A second, older Windows x64 row is listed first to
+// prove the pick is by version, not position.
+const EDGE_PRODUCTS = [
+  {
+    Product: 'Stable',
+    Releases: [
+      { ReleaseId: 128293, Platform: 'MacOS', Architecture: 'universal', ProductVersion: '156.0.1.1' },
+      { ReleaseId: 131000, Platform: 'Windows', Architecture: 'x64', ProductVersion: '155.0.4283.9' },
+      { ReleaseId: 131500, Platform: 'Windows', Architecture: 'arm64', ProductVersion: '156.0.0.0' },
+      {
+        ReleaseId: 132222,
+        Platform: 'Windows',
+        Architecture: 'x64',
+        SeverityLevel: 'None',
+        ProductVersion: '155.0.4283.60',
+        PublishedTime: '2026-10-15T20:49:00',
+        ExpectedExpiryDate: '2027-10-15T20:22:00',
+      },
+    ],
+  },
+  { Product: 'Beta', Releases: [{ Platform: 'Windows', Architecture: 'x64', ProductVersion: '156.0.4300.1' }] },
+];
+
+test('edge_stt: newest Stable Windows x64 version', () => {
+  assert.equal(edgeStableVersion(EDGE_PRODUCTS), '155.0.4283.60');
+  assert.equal(edgeStableVersion([{ Product: 'Beta', Releases: [] }]), null);
+  assert.equal(edgeStableVersion({ message: 'error' }), null);
+});
+
+// The top of rany2/edge-tts src/edge_tts/constants.py on 2026-10-16. Its
+// `2-` version is the speech synthesis one and must not be taken.
+const EDGE_TTS_CONSTANTS = `"""Constants for the edge_tts package."""
+
+BASE_URL = "speech.platform.bing.com/consumer/speech/synthesize/readaloud"
+TRUSTED_CLIENT_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4"
+
+WSS_URL = f"wss://{BASE_URL}/edge/v1?TrustedClientToken={TRUSTED_CLIENT_TOKEN}"
+
+CHROMIUM_FULL_VERSION = "143.0.3650.75"
+SEC_MS_GEC_VERSION = f"2-{CHROMIUM_FULL_VERSION}"
+`;
+
+test('edge_stt: edge-tts token, and the candidates worth re-probing', () => {
+  assert.equal(edgeTtsToken(EDGE_TTS_CONSTANTS), '6A5AA1D4EAFF4E9FB37E23D68491D6F4');
+  assert.equal(edgeTtsToken(EDGE_TTS_CONSTANTS.replace(/\n/g, '\r\n')), '6A5AA1D4EAFF4E9FB37E23D68491D6F4');
+  assert.equal(edgeTtsToken('TRUSTED_CLIENT_TOKEN = f"{x}"'), null);
+  const cur = { version: '1-155.0.4283.60', token: 'A'.repeat(32) };
+  assert.deepEqual(edgeSttCandidates(cur, { version: '1-156.0.1.2', token: 'B'.repeat(32) }), [
+    { version: '1-156.0.1.2', token: 'A'.repeat(32) },
+    { version: '1-155.0.4283.60', token: 'B'.repeat(32) },
+    { version: '1-156.0.1.2', token: 'B'.repeat(32) },
+  ]);
+  assert.deepEqual(edgeSttCandidates(cur, { version: cur.version, token: null }), []);
+  assert.deepEqual(edgeSttCandidates(cur, { version: null, token: 'B'.repeat(32) }), [
+    { version: cur.version, token: 'B'.repeat(32) },
+  ]);
+});
+
+test('edge_stt splice: replaces in place, every other byte identical', () => {
+  const before =
+    '{\n  "version": 2,\n  "edge_stt": {\n    "host": "speech.platform.bing.com",\n    "token": "OLD",\n    "version": "1-1.0.0.0",\n    "auth": "gec-query"\n  },\n  "x": [1,2]\n}\n';
+  const after = spliceEdgeStt(before, { version: '1-155.0.4283.60' });
+  assert.equal(after, before.replace('"1-1.0.0.0"', '"1-155.0.4283.60"'));
+  const both = spliceEdgeStt(before, { version: '1-2.0.0.0', token: 'NEW' });
+  assert.equal(both, before.replace('"1-1.0.0.0"', '"1-2.0.0.0"').replace('"OLD"', '"NEW"'));
+  assert.equal(spliceEdgeStt(both, { version: '1-2.0.0.0', token: 'NEW' }), both, 'idempotent');
+});
+
+test('edge_stt splice: appends a missing field in the object style, CRLF and single line', () => {
+  const crlf = '{\r\n    "edge_stt": {\r\n        "host": "h"\r\n    },\r\n    "z": 1\r\n}';
+  assert.equal(
+    spliceEdgeStt(crlf, { token: 'T' }),
+    '{\r\n    "edge_stt": {\r\n        "host": "h",\r\n        "token": "T"\r\n    },\r\n    "z": 1\r\n}',
+  );
+  assert.equal(spliceEdgeStt('{"edge_stt": {"host": "h"}}', { version: 'V' }), '{"edge_stt": {"host": "h", "version": "V"}}');
+  assert.deepEqual(JSON.parse(spliceEdgeStt('{"edge_stt": {}}', { token: 'T' })), { edge_stt: { token: 'T' } });
+});
+
+test('edge_stt splice: creates the object after endpoints, other keys untouched', () => {
+  const before = '{\n  "version": 2,\n  "urls": {},\n  "endpoints": {\n    "a": ["b"]\n  },\n  "disabled_engines": []\n}\n';
+  const after = spliceEdgeStt(before, { token: 'T' });
+  assert.equal(
+    after,
+    '{\n  "version": 2,\n  "urls": {},\n  "endpoints": {\n    "a": ["b"]\n  },\n  "edge_stt": {\n    "token": "T"\n  },\n  "disabled_engines": []\n}\n',
+  );
+  assert.deepEqual(Object.keys(JSON.parse(spliceEdgeStt('{"urls":{},"y":1}', { version: 'V' }))), ['urls', 'edge_stt', 'y']);
+});
+
+test('edge_stt splice: writes only version and token, refuses a broken shape', () => {
+  assert.throws(() => spliceEdgeStt('{}', { host: 'evil.example' }), /not writable/);
+  assert.throws(() => spliceEdgeStt('{}', { token: '' }), /non-empty/);
+  assert.throws(() => spliceEdgeStt('{"edge_stt": []}', { token: 'T' }), /not an object/);
+  assert.throws(() => spliceEdgeStt('{"edge_stt": {}, "edge_stt": {}}', { token: 'T' }), /more than one/);
+});
+
+test('edge_stt splice: the live manifest keeps every byte outside the written fields', () => {
+  const live = readFileSync(path.join(HERE, '..', '..', 'url-overrides.json'), 'utf8');
+  const fields = { version: '1-155.0.4283.60', token: '6A5AA1D4EAFF4E9FB37E23D68491D6F4' };
+  const after = spliceEdgeStt(live, fields);
+  const b = JSON.parse(live);
+  const a = JSON.parse(after);
+  for (const k of Object.keys(b)) if (k !== 'edge_stt') assert.deepEqual(a[k], b[k]);
+  assert.deepEqual(a.edge_stt, { ...(b.edge_stt || {}), ...fields });
+  if (!b.edge_stt) {
+    // Inserted as `,<eol><indent>"edge_stt": <value>` right after a value.
+    const m = topLevelMembers(after).members.find((x) => x.key === 'edge_stt');
+    const cut = after.lastIndexOf(',', m.keyStart);
+    assert.equal(after.slice(0, cut) + after.slice(m.valueEnd), live);
+  }
+});
+
+test('edge_stt: the committed clip is canonical 16 kHz mono s16 under 200 KB', () => {
+  const wav = readFileSync(path.join(HERE, catalog.single.edge_stt.clip));
+  assert.ok(wav.length < 200_000);
+  assert.equal(wav.toString('latin1', 0, 4), 'RIFF');
+  assert.equal(wav.toString('latin1', 36, 40), 'data');
+  assert.deepEqual([wav.readUInt16LE(20), wav.readUInt16LE(22), wav.readUInt32LE(24), wav.readUInt16LE(34)], [1, 1, 16000, 16]);
+  assert.equal(wav.readUInt32LE(40), wav.length - 44);
 });

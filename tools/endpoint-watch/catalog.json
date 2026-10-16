@@ -1,5 +1,5 @@
 {
-  "_doc": "What tools/endpoint-watch/watch.mjs probes. 'pool' keys get an ordered endpoints list in url-overrides.json (healthy first); the app merges it ahead of its compiled list and only accepts hosts on that vendor's allowlist. 'single' engines are watched and alerted on. 'keyed' hosts are probed with no credentials: an auth error means the API is alive.",
+  "_doc": "What tools/endpoint-watch/watch.mjs probes. 'pool' keys get an ordered endpoints list in url-overrides.json (healthy first); the app merges it ahead of its compiled list and only accepts hosts on that vendor's allowlist. 'single' engines are watched and alerted on. 'edge_stt' streams edge-stt-probe.wav (synthesized speech, not a capture) through Edge's speech websocket with the manifest's edge_stt version and token (the catalog values when absent); on a failed handshake it re-probes with the current Edge Stable version and edge-tts's token and writes the pair that passes into url-overrides.json edge_stt, only those two fields. 'keyed' hosts are probed with no credentials: an auth error means the API is alive.",
   "probe_text": "hello friend",
   "pool": {
     "google_free": [
@@ -13,7 +13,19 @@
   "single": {
     "bing": { "probe": "bing", "session": "https://www.bing.com/translator", "url": "https://www.bing.com/ttranslatev3" },
     "mymemory": { "probe": "mymemory", "url": "https://api.mymemory.translated.net/get" },
-    "qq_transmart": { "probe": "transmart", "url": "https://transmart.qq.com/api/imt" }
+    "qq_transmart": { "probe": "transmart", "url": "https://transmart.qq.com/api/imt" },
+    "edge_stt": {
+      "probe": "edge_stt",
+      "url": "wss://speech.platform.bing.com/speech/recognition/edge/interactive/v1",
+      "token": "6A5AA1D4EAFF4E9FB37E23D68491D6F4",
+      "version": "1-155.0.4283.60",
+      "language": "en-US",
+      "clip": "edge-stt-probe.wav",
+      "expect": "Hello everyone, this is a quick speech recognition test for the chat box.",
+      "version_source": "https://edgeupdates.microsoft.com/api/products",
+      "token_source": "https://api.github.com/repos/rany2/edge-tts/contents/src/edge_tts/constants.py",
+      "token_source_raw": "https://raw.githubusercontent.com/rany2/edge-tts/master/src/edge_tts/constants.py"
+    }
   },
   "keyed": {
     "deepl_free": { "method": "POST", "url": "https://api-free.deepl.com/v2/translate" },
