@@ -1,6 +1,6 @@
 {
   "_doc": "Written by tools/endpoint-watch when an endpoint goes down or recovers, and weekly so the schedule stays enabled.",
-  "heartbeat_at": "2026-11-18T01:14:06.014Z",
+  "heartbeat_at": "2026-11-25T01:33:23.961Z",
   "down": [
     "qq_transmart"
   ],
@@ -8,181 +8,181 @@
     "bing": {
       "down": false,
       "last": "ok",
-      "ms": 523,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 834,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "edge_stt": {
       "down": false,
       "last": "ok",
-      "ms": 4073,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 4546,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "google_free https://clients5.google.com/translate_a/t?client=dict-chrome-ex": {
       "down": false,
       "last": "ok",
-      "ms": 87,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 1264,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "google_free https://translate.google.com/translate_a/single?client=gtx": {
       "down": false,
-      "last": "ok",
-      "ms": 104,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "last": "soft",
+      "ms": 10000,
+      "last_ok": "2026-11-24T05:54:58.894Z"
     },
     "google_free https://translate.google.com/translate_a/t?client=dict-chrome-ex": {
       "down": false,
       "last": "ok",
-      "ms": 102,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 1247,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "google_free https://translate.googleapis.com/translate_a/single?client=gtx": {
       "down": false,
       "last": "ok",
-      "ms": 121,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 1300,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "google_free https://translate.googleapis.com/translate_a/t?client=gtx": {
       "down": false,
       "last": "ok",
-      "ms": 87,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 1246,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:alibaba": {
       "down": false,
       "last": "ok",
-      "ms": 1337,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 1625,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:azure_translator": {
       "down": false,
       "last": "ok",
-      "ms": 936,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 1390,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:azure_translator_cn": {
       "down": false,
       "last": "ok",
-      "ms": 2863,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 3465,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:baidu": {
       "down": false,
       "last": "ok",
-      "ms": 1459,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 3564,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:caiyun": {
       "down": false,
       "last": "ok",
-      "ms": 3671,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 4476,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:deepl_free": {
       "down": false,
       "last": "ok",
-      "ms": 1362,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 1633,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:deepl_pro": {
       "down": false,
       "last": "ok",
-      "ms": 1407,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 1623,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:deepseek": {
       "down": false,
       "last": "ok",
-      "ms": 493,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 757,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:gemini": {
       "down": false,
       "last": "ok",
-      "ms": 174,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 127,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:google_tllm": {
       "down": false,
       "last": "ok",
-      "ms": 1189,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 2796,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:groq": {
       "down": false,
       "last": "ok",
-      "ms": 355,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 297,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:moonshot": {
       "down": false,
       "last": "ok",
-      "ms": 1295,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 1744,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:moonshot_global": {
       "down": false,
       "last": "ok",
-      "ms": 917,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 857,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:openai": {
       "down": false,
       "last": "ok",
-      "ms": 203,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 191,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:openrouter": {
       "down": false,
       "last": "ok",
-      "ms": 316,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 244,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:papago": {
       "down": false,
       "last": "ok",
-      "ms": 2091,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 3255,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:plamo": {
       "down": false,
       "last": "ok",
-      "ms": 1462,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 3190,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:tencent": {
       "down": false,
       "last": "ok",
-      "ms": 2906,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 3704,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:volcano": {
       "down": false,
       "last": "ok",
-      "ms": 4059,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 5387,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:yandex": {
       "down": false,
       "last": "ok",
-      "ms": 3005,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 3766,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "keyed:youdao": {
       "down": false,
       "last": "ok",
-      "ms": 3177,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 4206,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "mymemory": {
       "down": false,
       "last": "ok",
-      "ms": 1100,
-      "last_ok": "2026-11-18T01:14:06.014Z"
+      "ms": 1288,
+      "last_ok": "2026-11-25T01:33:23.961Z"
     },
     "qq_transmart": {
       "down": true,
       "last": "soft",
-      "ms": 1294,
+      "ms": 1297,
       "last_ok": "2026-10-11T20:54:29.588Z"
     }
   }
